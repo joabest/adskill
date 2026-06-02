@@ -4,16 +4,18 @@ export async function POST(req: Request) {
     const inputText = String(body.inputText || "")
 
     if (!inputText.trim()) {
-      return Response.json({ error: "Texto obrigatório." }, { status: 400 })
+      return Response.json({ error: "Cole um anúncio, copy, produto ou oferta para analisar." }, { status: 400 })
     }
 
     if (!process.env.OPENAI_API_KEY) {
-      const fallback = `Análise AdSkill AI\n\nFerramenta: ${body.toolType || "analisar"}\nNicho: ${body.niche || "não informado"}\nPlataforma: ${body.platform || "não informado"}\nPaís: ${body.country || "não informado"}\nTom: ${body.tone || "estratégico"}\n\n1. Promessa principal\nIdentifique uma transformação clara e específica para o público.\n\n2. Público-alvo\nDefina idade, desejo, dor e objeções antes de criar o anúncio.\n\n3. Ângulo de venda\nUse um gancho direto, demonstração simples e CTA objetivo.\n\n4. Melhorias\nCrie variações de headline, teste criativos UGC e evite promessas irreais.\n\nAdicione OPENAI_API_KEY na Vercel para ativar a IA real.`
-      return Response.json({ success: true, result: fallback })
+      return Response.json(
+        { error: "IA real não configurada. Adicione OPENAI_API_KEY nas variáveis de ambiente da Vercel e faça redeploy." },
+        { status: 500 }
+      )
     }
 
-    const systemPrompt = "Você é uma IA especialista em marketing de performance, copywriting, anúncios pagos, TikTok Ads, Meta Ads, dropshipping, quiz e VSL. Responda em português do Brasil. Não prometa resultados garantidos e não incentive fraude ou burlar políticas."
-    const userPrompt = `Ferramenta: ${body.toolType}\nNicho: ${body.niche || "não informado"}\nPlataforma: ${body.platform || "não informado"}\nPaís: ${body.country || "não informado"}\nTom: ${body.tone || "estratégico"}\n\nConteúdo enviado:\n${inputText}`
+    const systemPrompt = "Você é uma IA especialista em marketing de performance, copywriting, anúncios pagos, TikTok Ads, Meta Ads, dropshipping, quiz e VSL. Responda em português do Brasil. Seja prático e específico. Não invente dados, métricas, faturamento ou resultados. Não prometa resultado garantido e não incentive fraude ou burlar políticas."
+    const userPrompt = `Ferramenta: ${body.toolType}\nNicho: ${body.niche || "não informado"}\nPlataforma: ${body.platform || "não informado"}\nPaís: ${body.country || "não informado"}\nTom: ${body.tone || "estratégico"}\n\nConteúdo enviado pelo usuário:\n${inputText}\n\nEntregue uma resposta útil baseada apenas no conteúdo informado. Se faltar informação, diga o que precisa ser validado.`
 
     const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -27,14 +29,14 @@ export async function POST(req: Request) {
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.8,
+        temperature: 0.7,
       }),
     })
 
     const data = await aiResponse.json()
 
     if (!aiResponse.ok) {
-      return Response.json({ error: "Erro na API da IA." }, { status: 500 })
+      return Response.json({ error: data?.error?.message || "Erro na API da IA." }, { status: 500 })
     }
 
     return Response.json({ success: true, result: data.choices?.[0]?.message?.content || "" })
